@@ -1,0 +1,19 @@
+{
+  "name": "nation-bot",
+  "version": "1.0.0",
+  "description": "Bot de administración y traducción para nation Network",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@vitalets/google-translate-api": "^9.2.1",
+    "discord.js": "^14.24.2",
+    "dotenv": "^17.2.3",
+    "translate-google-api": "^1.0.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
