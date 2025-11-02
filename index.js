@@ -2,6 +2,22 @@ const { Client, GatewayIntentBits, Collection, EmbedBuilder, PermissionsBitField
 const translate = require('translate-google-api');
 const config = require('./config.json');
 require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Configuración desde variables de entorno
+const config = {
+  token: process.env.DISCORD_TOKEN || process.env.TOKEN, // Compatibilidad con ambos nombres
+  allowedRoles: process.env.ALLOWED_ROLES ? process.env.ALLOWED_ROLES.split(',') : ['Administrator', 'Moderator']
+};
+
+// Verificar que el token existe
+if (!config.token) {
+  console.error('❌ ERROR: No se encontró DISCORD_TOKEN en las variables de entorno');
+  process.exit(1);
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -12,6 +28,7 @@ const client = new Client({
     GatewayIntentBits.GuildModeration
   ]
 });
+
 
 // Cambiar el evento ready para evitar el warning
 client.on('clientReady', async () => {
@@ -1107,11 +1124,15 @@ app.listen(PORT, () => {
   console.log(`🌐 Servidor web en puerto ${PORT}`);
 });
 // Manejar errores
-client.on('error', console.error);
-process.on('unhandledRejection', console.error);
+console.log('🔧 Iniciando bot...');
+console.log('📝 Variables de entorno cargadas:', {
+  hasToken: !!config.token,
+  tokenLength: config.token ? config.token.length : 0,
+  allowedRoles: config.allowedRoles
+});
 
-// Iniciar el bot
-client.login(process.env.TOKEN).catch(error => {
+client.login(config.token).catch(error => {
   console.error('❌ Error al iniciar sesión:', error);
+  console.log('💡 Verifica que DISCORD_TOKEN esté configurado en Netlify');
   process.exit(1);
 });
