@@ -1087,7 +1087,25 @@ client.on('interactionCreate', async interaction => {
 function isValidHexColor(color) {
   return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
 }
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
+// Servir página estática
+app.use(express.static('public'));
+
+// Endpoint de estado del bot
+app.get('/status', (req, res) => {
+  res.json({ 
+    status: 'online', 
+    guilds: client.guilds.cache.size,
+    uptime: process.uptime()
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor web en puerto ${PORT}`);
+});
 // Manejar errores
 client.on('error', console.error);
 process.on('unhandledRejection', console.error);
