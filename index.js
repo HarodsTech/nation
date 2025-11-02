@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, Collection, EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require('discord.js');
 const translate = require('translate-google-api');
-const config = require('./config.json');
+const express = require('express');
 require('dotenv').config();
 
 const app = express();
@@ -8,13 +8,14 @@ const PORT = process.env.PORT || 3000;
 
 // Configuración desde variables de entorno
 const config = {
-  token: process.env.DISCORD_TOKEN || process.env.TOKEN, // Compatibilidad con ambos nombres
+  token: process.env.DISCORD_TOKEN,
   allowedRoles: process.env.ALLOWED_ROLES ? process.env.ALLOWED_ROLES.split(',') : ['Administrator', 'Moderator']
 };
 
 // Verificar que el token existe
 if (!config.token) {
   console.error('❌ ERROR: No se encontró DISCORD_TOKEN en las variables de entorno');
+  console.log('💡 Asegúrate de configurar DISCORD_TOKEN en Render');
   process.exit(1);
 }
 
@@ -29,41 +30,143 @@ const client = new Client({
   ]
 });
 
+// ========== CONFIGURACIÓN WEB PARA RENDER ==========
+app.use(express.static('public'));
 
-// Cambiar el evento ready para evitar el warning
-client.on('clientReady', async () => {
-  console.log(`✅ Bot ${client.user.tag} está en línea!`);
-  console.log(`🏠 Conectado a ${client.guilds.cache.size} servidores`);
-  
-  try {
-    await client.application.commands.set(commands);
-    console.log('✅ Comandos registrados correctamente');
-  } catch (error) {
-    console.error('❌ Error registrando comandos:', error);
-  }
-
-  client.user.setActivity('Obsidian Network | /help', { type: 'WATCHING' });
+app.get('/status', (req, res) => {
+  res.json({ 
+    status: 'online', 
+    guilds: client.guilds?.cache?.size || 0,
+    uptime: process.uptime(),
+    ready: client.isReady(),
+    timestamp: new Date().toISOString()
+  });
 });
 
-// También mantener el evento ready original por compatibilidad
-client.once('ready', async () => {
-  console.log(`✅ Bot ${client.user.tag} está en línea!`);
-  console.log(`🏠 Conectado a ${client.guilds.cache.size} servidores`);
-  
-  try {
-    await client.application.commands.set(commands);
-    console.log('✅ Comandos registrados correctamente');
-  } catch (error) {
-    console.error('❌ Error registrando comandos:', error);
-  }
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Discord Bot - Nation Network</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                background: linear-gradient(135deg, #1e1e2e, #2d2d44);
+                color: #ffffff; 
+                min-height: 100vh;
+                padding: 20px;
+            }
+            .container { max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .header h1 { 
+                font-size: 2.5rem; 
+                margin-bottom: 10px;
+                background: linear-gradient(45deg, #7289da, #5b6eae);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .status { 
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                padding: 25px; 
+                border-radius: 15px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                margin: 20px 0;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            }
+            .status-item { 
+                display: flex; 
+                justify-content: space-between;
+                margin: 10px 0;
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            .online { color: #00ff8c; font-weight: bold; }
+            .offline { color: #ff4444; font-weight: bold; }
+            .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 25px 0; }
+            .feature-card { 
+                background: rgba(255, 255, 255, 0.05);
+                padding: 20px;
+                border-radius: 10px;
+                border-left: 4px solid #7289da;
+            }
+            .footer { 
+                text-align: center; 
+                margin-top: 30px;
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 0.9rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🤖 Nation Network Bot</h1>
+                <p>Bot de Discord con sistema de traducción automática y moderación</p>
+            </div>
+            
+            <div class="status">
+                <h2>Estado del Bot</h2>
+                <div class="status-item">
+                    <span>Estado:</span>
+                    <span class="${client.isReady() ? 'online' : 'offline'}">
+                        ${client.isReady() ? '✅ Conectado' : '❌ Desconectado'}
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span>Servidores:</span>
+                    <span>${client.guilds?.cache?.size || 0}</span>
+                </div>
+                <div class="status-item">
+                    <span>Uptime:</span>
+                    <span>${Math.floor(process.uptime())} segundos</span>
+                </div>
+                <div class="status-item">
+                    <span>Plataforma:</span>
+                    <span>Render</span>
+                </div>
+            </div>
 
-  client.user.setActivity('Obsidian Network | /help', { type: 'WATCHING' });
+            <div class="features">
+                <div class="feature-card">
+                    <h3>🌍 Traducción</h3>
+                    <p>Traducción automática entre español e inglés en canales designados</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🛡️ Moderación</h3>
+                    <p>Sistema completo de moderación con kick, ban, mute y más</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⚡ Comandos</h3>
+                    <p>Más de 15 comandos para administrar tu servidor</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🔧 Configurable</h3>
+                    <p>Fácil configuración de canales de traducción</p>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p>El bot está ejecutándose correctamente en Render</p>
+                <p>Última actualización: ${new Date().toLocaleString()}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+  `);
 });
 
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor web ejecutándose en puerto ${PORT}`);
+});
+
+// ========== CONFIGURACIÓN DEL BOT ==========
 client.commands = new Collection();
-// SOLO guardamos el canal designado por ID
 client.translationChannels = new Map();
-// NO usamos autoTranslate general, solo el canal específico
 client.translationCooldown = new Map();
 
 // Función para verificar permisos
@@ -72,7 +175,7 @@ function hasPermission(member) {
          config.allowedRoles.some(role => member.roles.cache.some(r => r.name === role));
 }
 
-// Función de traducción MEJORADA - maneja diferentes formatos de respuesta
+// Función de traducción MEJORADA
 async function translateText(text, targetLang) {
   try {
     // Verificar cooldown
@@ -86,40 +189,32 @@ async function translateText(text, targetLang) {
     
     client.translationCooldown.set(cooldownKey, now);
     
-    // Limpiar cooldown antiguos
     setTimeout(() => {
       client.translationCooldown.delete(cooldownKey);
     }, 60000);
 
-    // Usar la API con manejo mejorado
+    // Usar la API
     const result = await translate(text, { to: targetLang });
     
-    // MANEJO DE DIFERENTES FORMATOS DE RESPUESTA
+    // Manejo de diferentes formatos de respuesta
     let translatedText;
     
     if (typeof result === 'string') {
-      // Si es string directo
       translatedText = result;
     } else if (Array.isArray(result)) {
-      // Si es array, tomar el primer elemento
       translatedText = result[0];
     } else if (result && typeof result === 'object') {
-      // Si es objeto, intentar extraer el texto
       if (result.text) {
         translatedText = result.text;
       } else if (result[0] && result[0][0]) {
-        // Formato de respuesta complejo de Google Translate
         translatedText = result[0][0];
       } else {
-        // Convertir objeto a string como último recurso
         translatedText = JSON.stringify(result);
       }
     } else {
-      // Cualquier otro caso
       translatedText = String(result);
     }
     
-    // Validar que el texto traducido sea válido
     if (!translatedText || translatedText === text || translatedText === '[object Object]') {
       return fallbackTranslation(text, targetLang);
     }
@@ -132,60 +227,30 @@ async function translateText(text, targetLang) {
   }
 }
 
-// Traducción de fallback mejorada
+// Traducción de fallback
 function fallbackTranslation(text, targetLang) {
   const translations = {
     // Español a Inglés
-    'hola': 'hello',
-    'adiós': 'goodbye', 
-    'gracias': 'thank you',
-    'por favor': 'please',
-    'sí': 'yes',
-    'no': 'no',
-    'ayuda': 'help',
-    'bienvenido': 'welcome',
-    'lo siento': 'sorry',
-    'buenos días': 'good morning',
-    'buenas tardes': 'good afternoon',
-    'buenas noches': 'good night',
-    'cómo estás': 'how are you',
-    'qué tal': 'how are you',
-    'de nada': 'you\'re welcome',
-    'entendido': 'understood',
-    'claro': 'of course',
-    'perfecto': 'perfect',
+    'hola': 'hello', 'adiós': 'goodbye', 'gracias': 'thank you', 'por favor': 'please',
+    'sí': 'yes', 'no': 'no', 'ayuda': 'help', 'bienvenido': 'welcome', 'lo siento': 'sorry',
+    'buenos días': 'good morning', 'buenas tardes': 'good afternoon', 'buenas noches': 'good night',
+    'cómo estás': 'how are you', 'qué tal': 'how are you', 'de nada': 'you\'re welcome',
+    'entendido': 'understood', 'claro': 'of course', 'perfecto': 'perfect',
     
     // Inglés a Español
-    'hello': 'hola',
-    'hi': 'hola',
-    'goodbye': 'adiós',
-    'bye': 'adiós',
-    'thanks': 'gracias',
-    'thank you': 'gracias',
-    'please': 'por favor',
-    'yes': 'sí',
-    'no': 'no',
-    'help': 'ayuda',
-    'welcome': 'bienvenido',
-    'sorry': 'lo siento',
-    'good morning': 'buenos días',
-    'good afternoon': 'buenas tardes',
-    'good night': 'buenas noches',
-    'how are you': 'cómo estás',
-    'understand': 'entender',
-    'perfect': 'perfecto',
-    'ok': 'ok',
-    'okay': 'está bien'
+    'hello': 'hola', 'hi': 'hola', 'goodbye': 'adiós', 'bye': 'adiós', 'thanks': 'gracias',
+    'thank you': 'gracias', 'please': 'por favor', 'yes': 'sí', 'no': 'no', 'help': 'ayuda',
+    'welcome': 'bienvenido', 'sorry': 'lo siento', 'good morning': 'buenos días',
+    'good afternoon': 'buenas tardes', 'good night': 'buenas noches', 'how are you': 'cómo estás',
+    'understand': 'entender', 'perfect': 'perfecto', 'ok': 'ok', 'okay': 'está bien'
   };
 
   const lowerText = text.toLowerCase().trim();
   
-  // Buscar traducción exacta
   if (translations[lowerText]) {
     return translations[lowerText];
   }
   
-  // Buscar palabras individuales
   const words = lowerText.split(/\s+/);
   const translatedWords = words.map(word => translations[word] || word);
   
@@ -211,7 +276,7 @@ function detectLanguage(text) {
   return 'en';
 }
 
-// Comandos
+// Comandos del bot
 const commands = [
   {
     name: 'help',
@@ -222,142 +287,63 @@ const commands = [
     name: 'kick',
     description: 'Expulsar a un miembro del servidor',
     options: [
-      {
-        name: 'usuario',
-        description: 'Usuario a expulsar',
-        type: 6,
-        required: true
-      },
-      {
-        name: 'razon',
-        description: 'Razón de la expulsión',
-        type: 3,
-        required: false
-      }
+      { name: 'usuario', description: 'Usuario a expulsar', type: 6, required: true },
+      { name: 'razon', description: 'Razón de la expulsión', type: 3, required: false }
     ]
   },
   {
     name: 'ban',
     description: 'Banear a un miembro del servidor',
     options: [
-      {
-        name: 'usuario',
-        description: 'Usuario a banear',
-        type: 6,
-        required: true
-      },
-      {
-        name: 'razon',
-        description: 'Razón del baneo',
-        type: 3,
-        required: false
-      },
-      {
-        name: 'dias',
-        description: 'Días de mensajes a eliminar (0-7)',
-        type: 4,
-        required: false,
-        min_value: 0,
-        max_value: 7
-      }
+      { name: 'usuario', description: 'Usuario a banear', type: 6, required: true },
+      { name: 'razon', description: 'Razón del baneo', type: 3, required: false },
+      { name: 'dias', description: 'Días de mensajes a eliminar (0-7)', type: 4, required: false, min_value: 0, max_value: 7 }
     ]
   },
   {
     name: 'unban',
     description: 'Desbanear a un usuario',
     options: [
-      {
-        name: 'user_id',
-        description: 'ID del usuario a desbanear',
-        type: 3,
-        required: true
-      }
+      { name: 'user_id', description: 'ID del usuario a desbanear', type: 3, required: true }
     ]
   },
   {
     name: 'clear',
     description: 'Eliminar mensajes',
     options: [
-      {
-        name: 'cantidad',
-        description: 'Número de mensajes a eliminar (1-100)',
-        type: 4,
-        required: true,
-        min_value: 1,
-        max_value: 100
-      },
-      {
-        name: 'usuario',
-        description: 'Eliminar solo mensajes de un usuario específico',
-        type: 6,
-        required: false
-      }
+      { name: 'cantidad', description: 'Número de mensajes a eliminar (1-100)', type: 4, required: true, min_value: 1, max_value: 100 },
+      { name: 'usuario', description: 'Eliminar solo mensajes de un usuario específico', type: 6, required: false }
     ]
   },
   {
     name: 'mute',
     description: 'Silenciar a un usuario',
     options: [
-      {
-        name: 'usuario',
-        description: 'Usuario a silenciar',
-        type: 6,
-        required: true
-      },
-      {
-        name: 'tiempo',
-        description: 'Tiempo de silencio (ej: 1h, 30m, 1d)',
-        type: 3,
-        required: false
-      },
-      {
-        name: 'razon',
-        description: 'Razón del silencio',
-        type: 3,
-        required: false
-      }
+      { name: 'usuario', description: 'Usuario a silenciar', type: 6, required: true },
+      { name: 'tiempo', description: 'Tiempo de silencio (ej: 1h, 30m, 1d)', type: 3, required: false },
+      { name: 'razon', description: 'Razón del silencio', type: 3, required: false }
     ]
   },
   {
     name: 'unmute',
     description: 'Quitar silencio a un usuario',
     options: [
-      {
-        name: 'usuario',
-        description: 'Usuario a quitar silencio',
-        type: 6,
-        required: true
-      }
+      { name: 'usuario', description: 'Usuario a quitar silencio', type: 6, required: true }
     ]
   },
   {
     name: 'warn',
     description: 'Advertir a un usuario',
     options: [
-      {
-        name: 'usuario',
-        description: 'Usuario a advertir',
-        type: 6,
-        required: true
-      },
-      {
-        name: 'razon',
-        description: 'Razón de la advertencia',
-        type: 3,
-        required: true
-      }
+      { name: 'usuario', description: 'Usuario a advertir', type: 6, required: true },
+      { name: 'razon', description: 'Razón de la advertencia', type: 3, required: true }
     ]
   },
   {
     name: 'userinfo',
     description: 'Obtener información de un usuario',
     options: [
-      {
-        name: 'usuario',
-        description: 'Usuario del que obtener información',
-        type: 6,
-        required: false
-      }
+      { name: 'usuario', description: 'Usuario del que obtener información', type: 6, required: false }
     ]
   },
   {
@@ -369,13 +355,7 @@ const commands = [
     name: 'set-translation-channel',
     description: 'Establecer el canal para conversaciones bilingües',
     options: [
-      {
-        name: 'canal',
-        description: 'Canal donde se traducirán los mensajes automáticamente',
-        type: 7,
-        required: true,
-        channel_types: [ChannelType.GuildText]
-      }
+      { name: 'canal', description: 'Canal donde se traducirán los mensajes automáticamente', type: 7, required: true, channel_types: [ChannelType.GuildText] }
     ]
   },
   {
@@ -387,222 +367,93 @@ const commands = [
     name: 'translate',
     description: 'Traducir mensaje entre español e inglés',
     options: [
-      {
-        name: 'mensaje',
-        description: 'Mensaje a traducir',
-        type: 3,
-        required: true
-      },
-      {
-        name: 'traduccion',
-        description: 'Traducción personalizada (opcional)',
-        type: 3,
-        required: false
-      },
-      {
-        name: 'idioma_destino',
-        description: 'Idioma destino para la traducción',
-        type: 3,
-        required: false,
-        choices: [
-          { name: 'Español', value: 'es' },
-          { name: 'Inglés', value: 'en' },
-          { name: 'Ambos idiomas', value: 'both' }
-        ]
-      },
-      {
-        name: 'color',
-        description: 'Color del embed (hexadecimal)',
-        type: 3,
-        required: false
-      }
+      { name: 'mensaje', description: 'Mensaje a traducir', type: 3, required: true },
+      { name: 'traduccion', description: 'Traducción personalizada (opcional)', type: 3, required: false },
+      { name: 'idioma_destino', description: 'Idioma destino para la traducción', type: 3, required: false, choices: [
+        { name: 'Español', value: 'es' }, { name: 'Inglés', value: 'en' }, { name: 'Ambos idiomas', value: 'both' }
+      ]},
+      { name: 'color', description: 'Color del embed (hexadecimal)', type: 3, required: false }
     ]
   },
   {
     name: 'announce',
     description: 'Crear un mensaje anuncio/traducción personalizado',
     options: [
-      {
-        name: 'texto',
-        description: 'Texto principal del mensaje',
-        type: 3,
-        required: false
-      },
-      {
-        name: 'titulo',
-        description: 'Título del embed',
-        type: 3,
-        required: false
-      },
-      {
-        name: 'traduccion',
-        description: 'Texto traducido (si no se proporciona, se traduce automáticamente)',
-        type: 3,
-        required: false
-      },
-      {
-        name: 'color',
-        description: 'Color del embed en hexadecimal (ej: #FF0000)',
-        type: 3,
-        required: false
-      },
-      {
-        name: 'idioma_destino',
-        description: 'Idioma para la traducción automática',
-        type: 3,
-        required: false,
-        choices: [
-          { name: 'Español', value: 'es' },
-          { name: 'Inglés', value: 'en' },
-          { name: 'Ambos idiomas', value: 'both' }
-        ]
-      },
-      {
-        name: 'imagen',
-        description: 'URL de la imagen a mostrar',
-        type: 3,
-        required: false
-      }
+      { name: 'texto', description: 'Texto principal del mensaje', type: 3, required: false },
+      { name: 'titulo', description: 'Título del embed', type: 3, required: false },
+      { name: 'traduccion', description: 'Texto traducido (si no se proporciona, se traduce automáticamente)', type: 3, required: false },
+      { name: 'color', description: 'Color del embed en hexadecimal (ej: #FF0000)', type: 3, required: false },
+      { name: 'idioma_destino', description: 'Idioma para la traducción automática', type: 3, required: false, choices: [
+        { name: 'Español', value: 'es' }, { name: 'Inglés', value: 'en' }, { name: 'Ambos idiomas', value: 'both' }
+      ]},
+      { name: 'imagen', description: 'URL de la imagen a mostrar', type: 3, required: false }
     ]
   },
   {
     name: 'translate-message',
     description: 'Traducir un mensaje existente',
     options: [
-      {
-        name: 'mensaje_id',
-        description: 'ID del mensaje a traducir',
-        type: 3,
-        required: true
-      },
-      {
-        name: 'idioma',
-        description: 'Idioma destino',
-        type: 3,
-        required: false,
-        choices: [
-          { name: 'Español', value: 'es' },
-          { name: 'Inglés', value: 'en' },
-          { name: 'Ambos idiomas', value: 'both' }
-        ]
-      }
+      { name: 'mensaje_id', description: 'ID del mensaje a traducir', type: 3, required: true },
+      { name: 'idioma', description: 'Idioma destino', type: 3, required: false, choices: [
+        { name: 'Español', value: 'es' }, { name: 'Inglés', value: 'en' }, { name: 'Ambos idiomas', value: 'both' }
+      ]}
     ]
   },
   {
     name: 'quick-translate',
     description: 'Traducción rápida de texto',
     options: [
-      {
-        name: 'texto',
-        description: 'Texto a traducir',
-        type: 3,
-        required: true
-      },
-      {
-        name: 'de',
-        description: 'Idioma de origen',
-        type: 3,
-        required: false,
-        choices: [
-          { name: 'Auto-detectar', value: 'auto' },
-          { name: 'Español', value: 'es' },
-          { name: 'Inglés', value: 'en' }
-        ]
-      },
-      {
-        name: 'a',
-        description: 'Idioma destino',
-        type: 3,
-        required: false,
-        choices: [
-          { name: 'Español', value: 'es' },
-          { name: 'Inglés', value: 'en' }
-        ]
-      }
+      { name: 'texto', description: 'Texto a traducir', type: 3, required: true },
+      { name: 'de', description: 'Idioma de origen', type: 3, required: false, choices: [
+        { name: 'Auto-detectar', value: 'auto' }, { name: 'Español', value: 'es' }, { name: 'Inglés', value: 'en' }
+      ]},
+      { name: 'a', description: 'Idioma destino', type: 3, required: false, choices: [
+        { name: 'Español', value: 'es' }, { name: 'Inglés', value: 'en' }
+      ]}
     ]
   }
 ];
 
-// Manejar interacciones de comandos
+// ========== MANEJADOR DE COMANDOS ==========
 client.on('interactionCreate', async interaction => {
   if (!interaction.isCommand()) return;
 
-  const { commandName, options, member, guild } = interaction;
+  const { commandName, options, member } = interaction;
 
-  // Verificar permisos para comandos de administración
   const adminCommands = ['kick', 'ban', 'unban', 'clear', 'mute', 'unmute', 'warn', 'set-translation-channel', 'announce', 'disable-auto-translate'];
   if (adminCommands.includes(commandName) && !hasPermission(member)) {
-    return interaction.reply({
-      content: '❌ No tienes permisos para usar este comando.',
-      flags: 64
-    });
+    return interaction.reply({ content: '❌ No tienes permisos para usar este comando.', flags: 64 });
   }
 
   try {
     switch (commandName) {
-      case 'help':
-        await handleHelp(interaction);
-        break;
-      case 'kick':
-        await handleKick(interaction, options);
-        break;
-      case 'ban':
-        await handleBan(interaction, options);
-        break;
-      case 'unban':
-        await handleUnban(interaction, options);
-        break;
-      case 'clear':
-        await handleClear(interaction, options);
-        break;
-      case 'mute':
-        await handleMute(interaction, options);
-        break;
-      case 'unmute':
-        await handleUnmute(interaction, options);
-        break;
-      case 'warn':
-        await handleWarn(interaction, options);
-        break;
-      case 'userinfo':
-        await handleUserInfo(interaction, options);
-        break;
-      case 'serverinfo':
-        await handleServerInfo(interaction);
-        break;
-      case 'set-translation-channel':
-        await handleSetTranslationChannel(interaction, options);
-        break;
-      case 'disable-auto-translate':
-        await handleDisableAutoTranslate(interaction);
-        break;
-      case 'translate':
-        await handleTranslate(interaction, options);
-        break;
-      case 'announce':
-        await handleAnnounce(interaction, options);
-        break;
-      case 'translate-message':
-        await handleTranslateMessage(interaction, options);
-        break;
-      case 'quick-translate':
-        await handleQuickTranslate(interaction, options);
-        break;
+      case 'help': await handleHelp(interaction); break;
+      case 'kick': await handleKick(interaction, options); break;
+      case 'ban': await handleBan(interaction, options); break;
+      case 'unban': await handleUnban(interaction, options); break;
+      case 'clear': await handleClear(interaction, options); break;
+      case 'mute': await handleMute(interaction, options); break;
+      case 'unmute': await handleUnmute(interaction, options); break;
+      case 'warn': await handleWarn(interaction, options); break;
+      case 'userinfo': await handleUserInfo(interaction, options); break;
+      case 'serverinfo': await handleServerInfo(interaction); break;
+      case 'set-translation-channel': await handleSetTranslationChannel(interaction, options); break;
+      case 'disable-auto-translate': await handleDisableAutoTranslate(interaction); break;
+      case 'translate': await handleTranslate(interaction, options); break;
+      case 'announce': await handleAnnounce(interaction, options); break;
+      case 'translate-message': await handleTranslateMessage(interaction, options); break;
+      case 'quick-translate': await handleQuickTranslate(interaction, options); break;
     }
   } catch (error) {
     console.error(`Error en comando ${commandName}:`, error);
-    await interaction.reply({
-      content: '❌ Ocurrió un error al ejecutar el comando.',
-      flags: 64
-    });
+    await interaction.reply({ content: '❌ Ocurrió un error al ejecutar el comando.', flags: 64 });
   }
 });
 
 // ========== FUNCIONES DE COMANDOS ==========
-
 async function handleHelp(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🤖 Comandos de Obsidian Network Bot')
+    .setTitle('🤖 Comandos de Nation Network Bot')
     .setColor('#7289DA')
     .setDescription('Lista de todos los comandos disponibles:')
     .addFields(
@@ -623,7 +474,7 @@ async function handleHelp(interaction) {
       }
     )
     .setFooter({ 
-      text: 'Obsidian Network - Soporte multilingüe',
+      text: 'Nation Network - Soporte multilingüe',
       iconURL: interaction.guild.iconURL({ dynamic: true }) 
     })
     .setTimestamp();
@@ -631,11 +482,8 @@ async function handleHelp(interaction) {
   await interaction.reply({ embeds: [embed], flags: 64 });
 }
 
-// NUEVO: Comando para desactivar completamente el auto-traducción
 async function handleDisableAutoTranslate(interaction) {
   const guildId = interaction.guild.id;
-  
-  // Eliminar completamente el canal de traducción para este servidor
   const hadChannel = client.translationChannels.has(guildId);
   const oldChannelId = client.translationChannels.get(guildId);
   client.translationChannels.delete(guildId);
@@ -649,10 +497,7 @@ async function handleDisableAutoTranslate(interaction) {
       flags: 64
     });
   } else {
-    await interaction.reply({
-      content: '❌ No había traducción automática activada en este servidor.',
-      flags: 64
-    });
+    await interaction.reply({ content: '❌ No había traducción automática activada en este servidor.', flags: 64 });
   }
 }
 
@@ -660,7 +505,6 @@ async function handleSetTranslationChannel(interaction, options) {
   const channel = options.getChannel('canal');
   const guildId = interaction.guild.id;
   
-  // Guardar SOLO el canal específico por ID
   client.translationChannels.set(guildId, channel.id);
   
   const embed = new EmbedBuilder()
@@ -668,22 +512,13 @@ async function handleSetTranslationChannel(interaction, options) {
     .setColor(0x0099FF)
     .setDescription(`El canal ${channel} ha sido configurado para **traducciones automáticas exclusivas**.`)
     .addFields(
-      { 
-        name: '¿Qué hace esto?', 
-        value: '**SOLO** los mensajes en este canal específico se traducirán automáticamente entre español e inglés. Los demás canales no se verán afectados.' 
-      },
-      { 
-        name: 'Configuración', 
-        value: `**Canal designado:** ${channel}\n**Servidor:** ${interaction.guild.name}\n**ID del Canal:** ${channel.id}` 
-      },
-      {
-        name: 'Para desactivar',
-        value: 'Usa `/disable-auto-translate` para desactivar completamente la traducción automática en este servidor.'
-      }
+      { name: '¿Qué hace esto?', value: '**SOLO** los mensajes en este canal específico se traducirán automáticamente entre español e inglés. Los demás canales no se verán afectados.' },
+      { name: 'Configuración', value: `**Canal designado:** ${channel}\n**Servidor:** ${interaction.guild.name}\n**ID del Canal:** ${channel.id}` },
+      { name: 'Para desactivar', value: 'Usa `/disable-auto-translate` para desactivar completamente la traducción automática en este servidor.' }
     )
     .setTimestamp()
     .setFooter({ 
-      text: 'Obsidian Network - Traducción exclusiva por canal', 
+      text: 'Nation Network - Traducción exclusiva por canal', 
       iconURL: interaction.guild.iconURL({ dynamic: true }) 
     });
 
@@ -697,7 +532,6 @@ async function handleTranslate(interaction, options) {
   const color = options.getString('color');
 
   await interaction.deferReply();
-
   const embedColor = color && isValidHexColor(color) ? color : '#7289DA';
 
   try {
@@ -722,63 +556,34 @@ async function handleTranslate(interaction, options) {
       contenidoEspañol = mensaje;
     }
 
-    // Validar que las traducciones sean strings válidos
     const esValido = (contenidoEspañol && typeof contenidoEspañol === 'string') || 
                     (contenidoIngles && typeof contenidoIngles === 'string');
     
     if (!esValido) {
-      return await interaction.editReply({
-        content: '❌ No se pudo traducir el mensaje. Intenta con un texto diferente.'
-      });
+      return await interaction.editReply({ content: '❌ No se pudo traducir el mensaje. Intenta con un texto diferente.' });
     }
-
-    // Asegurar que los valores sean strings
-    const esValor = contenidoEspañol || 'Traducción no disponible';
-    const enValor = contenidoIngles || 'Translation not available';
 
     const embed = new EmbedBuilder()
       .setColor(embedColor)
       .setTitle('🌍 Mensaje Traducido')
       .addFields(
-        { 
-          name: '🇪🇸 Español', 
-          value: String(esValor).substring(0, 1024),
-          inline: false 
-        },
-        { 
-          name: '🇬🇧 English', 
-          value: String(enValor).substring(0, 1024),
-          inline: false 
-        }
+        { name: '🇪🇸 Español', value: String(contenidoEspañol || 'Traducción no disponible').substring(0, 1024), inline: false },
+        { name: '🇬🇧 English', value: String(contenidoIngles || 'Translation not available').substring(0, 1024), inline: false }
       )
-      .setFooter({ 
-        text: `Traducido por ${interaction.user.tag}`,
-        iconURL: interaction.guild.iconURL({ dynamic: true })
-      })
+      .setFooter({ text: `Traducido por ${interaction.user.tag}`, iconURL: interaction.guild.iconURL({ dynamic: true }) })
       .setTimestamp();
 
     const row = new ActionRowBuilder()
       .addComponents(
-        new ButtonBuilder()
-          .setCustomId('translate_again')
-          .setLabel('🔄 Traducir de nuevo')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId('correct_translation')
-          .setLabel('✏️ Corregir traducción')
-          .setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('translate_again').setLabel('🔄 Traducir de nuevo').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('correct_translation').setLabel('✏️ Corregir traducción').setStyle(ButtonStyle.Secondary)
       );
 
-    await interaction.editReply({ 
-      embeds: [embed],
-      components: [row]
-    });
+    await interaction.editReply({ embeds: [embed], components: [row] });
 
   } catch (error) {
     console.error('Error en comando translate:', error);
-    await interaction.editReply({
-      content: '❌ Error al traducir el mensaje. Intenta nuevamente.'
-    });
+    await interaction.editReply({ content: '❌ Error al traducir el mensaje. Intenta nuevamente.' });
   }
 }
 
@@ -791,51 +596,33 @@ async function handleQuickTranslate(interaction, options) {
 
   try {
     let sourceLang = fromLang;
-    if (sourceLang === 'auto') {
-      sourceLang = detectLanguage(texto);
-    }
+    if (sourceLang === 'auto') sourceLang = detectLanguage(texto);
 
     const translated = await translateText(texto, toLang);
     
-    // Validar que la traducción sea un string válido
     if (!translated || typeof translated !== 'string') {
-      return await interaction.editReply({
-        content: '❌ No se pudo traducir el texto. Intenta con un texto diferente.'
-      });
+      return await interaction.editReply({ content: '❌ No se pudo traducir el texto. Intenta con un texto diferente.' });
     }
 
     const embed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle('🔤 Traducción Rápida')
       .addFields(
-        { 
-          name: `📥 ${sourceLang === 'es' ? 'Español' : 'English'}`, 
-          value: texto.length > 1024 ? texto.substring(0, 1020) + '...' : texto, 
-          inline: false 
-        },
-        { 
-          name: `📤 ${toLang === 'es' ? 'Español' : 'English'}`, 
-          value: translated.length > 1024 ? translated.substring(0, 1020) + '...' : translated, 
-          inline: false 
-        }
+        { name: `📥 ${sourceLang === 'es' ? 'Español' : 'English'}`, value: texto.length > 1024 ? texto.substring(0, 1020) + '...' : texto, inline: false },
+        { name: `📤 ${toLang === 'es' ? 'Español' : 'English'}`, value: translated.length > 1024 ? translated.substring(0, 1020) + '...' : translated, inline: false }
       )
-      .setFooter({ 
-        text: `Traducido por ${interaction.user.tag}`,
-        iconURL: interaction.guild.iconURL({ dynamic: true })
-      })
+      .setFooter({ text: `Traducido por ${interaction.user.tag}`, iconURL: interaction.guild.iconURL({ dynamic: true }) })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
     console.error('Error en quick-translate:', error);
-    await interaction.editReply({
-      content: '❌ Error en la traducción rápida. Intenta nuevamente.'
-    });
+    await interaction.editReply({ content: '❌ Error en la traducción rápida. Intenta nuevamente.' });
   }
 }
 
-// Funciones básicas de moderación
+// Funciones de moderación (simplificadas para el ejemplo)
 async function handleKick(interaction, options) {
   const user = options.getUser('usuario');
   const reason = options.getString('razon') || 'Sin razón especificada';
@@ -849,10 +636,7 @@ async function handleKick(interaction, options) {
       { name: 'Razón', value: reason, inline: false }
     )
     .setTimestamp()
-    .setFooter({ 
-      text: 'Obsidian Network', 
-      iconURL: interaction.guild.iconURL({ dynamic: true }) 
-    });
+    .setFooter({ text: 'Nation Network', iconURL: interaction.guild.iconURL({ dynamic: true }) });
 
   await interaction.reply({ embeds: [embed] });
 }
@@ -872,10 +656,7 @@ async function handleBan(interaction, options) {
       { name: 'Mensajes eliminados', value: `${days} días`, inline: true }
     )
     .setTimestamp()
-    .setFooter({ 
-      text: 'Obsidian Network', 
-      iconURL: interaction.guild.iconURL({ dynamic: true }) 
-    });
+    .setFooter({ text: 'Nation Network', iconURL: interaction.guild.iconURL({ dynamic: true }) });
 
   await interaction.reply({ embeds: [embed] });
 }
@@ -888,19 +669,10 @@ async function handleClear(interaction, options) {
     .setColor(0x00FF00)
     .setDescription(`Se eliminaron ${amount} mensajes.`)
     .setTimestamp()
-    .setFooter({ 
-      text: 'Obsidian Network', 
-      iconURL: interaction.guild.iconURL({ dynamic: true }) 
-    });
+    .setFooter({ text: 'Nation Network', iconURL: interaction.guild.iconURL({ dynamic: true }) });
 
-  const reply = await interaction.reply({ 
-    embeds: [embed], 
-    flags: 64
-  });
-  
-  setTimeout(() => {
-    reply.delete().catch(console.error);
-  }, 5000);
+  const reply = await interaction.reply({ embeds: [embed], flags: 64 });
+  setTimeout(() => reply.delete().catch(console.error), 5000);
 }
 
 async function handleUnban(interaction, options) {
@@ -938,10 +710,7 @@ async function handleUserInfo(interaction, options) {
       { name: 'Cuenta creada', value: `<t:${Math.floor(user.createdTimestamp / 1000)}:R>`, inline: true },
       { name: 'Se unió al servidor', value: member ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` : 'No miembro', inline: true }
     )
-    .setFooter({ 
-      text: 'Obsidian Network', 
-      iconURL: interaction.guild.iconURL({ dynamic: true }) 
-    })
+    .setFooter({ text: 'Nation Network', iconURL: interaction.guild.iconURL({ dynamic: true }) })
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed] });
@@ -962,10 +731,7 @@ async function handleServerInfo(interaction) {
       { name: '🌍 Idioma', value: guild.preferredLocale, inline: true },
       { name: '🆔 Server ID', value: guild.id, inline: true }
     )
-    .setFooter({ 
-      text: 'Obsidian Network', 
-      iconURL: guild.iconURL({ dynamic: true }) 
-    })
+    .setFooter({ text: 'Nation Network', iconURL: guild.iconURL({ dynamic: true }) })
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed] });
@@ -980,10 +746,7 @@ async function handleAnnounce(interaction, options) {
     .setDescription(texto)
     .setColor(0x0099FF)
     .setTimestamp()
-    .setFooter({ 
-      text: `Anuncio por ${interaction.user.tag}`,
-      iconURL: interaction.guild.iconURL({ dynamic: true })
-    });
+    .setFooter({ text: `Anuncio por ${interaction.user.tag}`, iconURL: interaction.guild.iconURL({ dynamic: true }) });
 
   await interaction.reply({ embeds: [embed] });
 }
@@ -1006,41 +769,28 @@ async function handleTranslateMessage(interaction, options) {
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
-    await interaction.reply({ 
-      content: '❌ No se pudo encontrar o traducir el mensaje.', 
-      flags: 64 
-    });
+    await interaction.reply({ content: '❌ No se pudo encontrar o traducir el mensaje.', flags: 64 });
   }
 }
 
-// ========== SISTEMA DE TRADUCCIÓN AUTOMÁTICA MEJORADO ==========
-
+// ========== SISTEMA DE TRADUCCIÓN AUTOMÁTICA ==========
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
   
-  // VERIFICACIÓN EXCLUSIVA: Solo traducir si este canal EXACTO está configurado
   const guildId = message.guild?.id;
   if (!guildId) return;
   
   const translationChannelId = client.translationChannels.get(guildId);
+  if (!translationChannelId || message.channel.id !== translationChannelId) return;
   
-  // SOLO traducir si este canal específico es el designado
-  if (!translationChannelId || message.channel.id !== translationChannelId) {
-    return; // No hacer nada en otros canales
-  }
-  
-  // Ignorar comandos y mensajes muy cortos
   if (message.content.startsWith('/') || message.content.length < 3) return;
 
-  // Rate limiting por usuario
+  // Rate limiting
   const userCooldownKey = `${message.author.id}-${message.channel.id}`;
   const now = Date.now();
   const lastUserMessage = client.translationCooldown.get(userCooldownKey);
   
-  if (lastUserMessage && (now - lastUserMessage) < 5000) {
-    return;
-  }
-  
+  if (lastUserMessage && (now - lastUserMessage) < 5000) return;
   client.translationCooldown.set(userCooldownKey, now);
 
   try {
@@ -1063,9 +813,7 @@ client.on('messageCreate', async message => {
         await message.react('🌍');
         
         setTimeout(async () => {
-          try {
-            await reply.delete();
-          } catch (error) {}
+          try { await reply.delete(); } catch (error) {}
         }, 15 * 60 * 1000);
       }
     }
@@ -1078,21 +826,15 @@ client.on('messageCreate', async message => {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
-  const { customId, message, user } = interaction;
+  const { customId } = interaction;
 
   try {
     switch (customId) {
       case 'translate_again':
-        await interaction.reply({
-          content: '🔄 Usa `/translate` para traducir otro mensaje.',
-          flags: 64
-        });
+        await interaction.reply({ content: '🔄 Usa `/translate` para traducir otro mensaje.', flags: 64 });
         break;
       case 'correct_translation':
-        await interaction.reply({
-          content: '✏️ Usa `/translate` con la opción "traduccion" para proporcionar una corrección.',
-          flags: 64
-        });
+        await interaction.reply({ content: '✏️ Usa `/translate` con la opción "traduccion" para proporcionar una corrección.', flags: 64 });
         break;
     }
   } catch (error) {
@@ -1104,28 +846,43 @@ client.on('interactionCreate', async interaction => {
 function isValidHexColor(color) {
   return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
 }
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Servir página estática
-app.use(express.static('public'));
+// ========== EVENTOS DEL BOT ==========
+client.on('clientReady', async () => {
+  console.log(`✅ Bot ${client.user.tag} está en línea!`);
+  console.log(`🏠 Conectado a ${client.guilds.cache.size} servidores`);
+  
+  try {
+    await client.application.commands.set(commands);
+    console.log('✅ Comandos registrados correctamente');
+  } catch (error) {
+    console.error('❌ Error registrando comandos:', error);
+  }
 
-// Endpoint de estado del bot
-app.get('/status', (req, res) => {
-  res.json({ 
-    status: 'online', 
-    guilds: client.guilds.cache.size,
-    uptime: process.uptime()
-  });
+  client.user.setActivity('Nation Network | /help', { type: 'WATCHING' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🌐 Servidor web en puerto ${PORT}`);
+client.once('ready', async () => {
+  console.log(`✅ Bot ${client.user.tag} está en línea!`);
+  console.log(`🏠 Conectado a ${client.guilds.cache.size} servidores`);
+  
+  try {
+    await client.application.commands.set(commands);
+    console.log('✅ Comandos registrados correctamente');
+  } catch (error) {
+    console.error('❌ Error registrando comandos:', error);
+  }
+
+  client.user.setActivity('Nation Network | /help', { type: 'WATCHING' });
 });
+
 // Manejar errores
-console.log('🔧 Iniciando bot...');
-console.log('📝 Variables de entorno cargadas:', {
+client.on('error', console.error);
+process.on('unhandledRejection', console.error);
+
+// ========== INICIAR BOT ==========
+console.log('🚀 Iniciando Nation Network Bot...');
+console.log('🔧 Configuración:', {
   hasToken: !!config.token,
   tokenLength: config.token ? config.token.length : 0,
   allowedRoles: config.allowedRoles
@@ -1133,6 +890,5 @@ console.log('📝 Variables de entorno cargadas:', {
 
 client.login(config.token).catch(error => {
   console.error('❌ Error al iniciar sesión:', error);
-  console.log('💡 Verifica que DISCORD_TOKEN esté configurado en Netlify');
   process.exit(1);
 });
